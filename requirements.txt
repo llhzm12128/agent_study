@@ -1,0 +1,8 @@
+# LLM 通道 (Step 1)
+openai>=1.0.0
+
+# 向量数据库 (Step 10)
+# chromadb>=0.4.0
+
+# MCP (Step 8, 9)
+# mcp>=1.0.0
