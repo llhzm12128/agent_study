@@ -11,3 +11,4 @@ class Config:
     LLM_MODEL = os.getenv("LLM_MODEL", "qwen-plus")
     MEMORY_MAX_TOKENS = 4000
     VECTOR_DB_PATH = os.getenv("VECTOR_DB_PATH", "./data/vector_store")
+    STREAM_MODE=os.getenv("STREAM_MODE", "true").lower() == "true"

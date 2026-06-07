@@ -15,6 +15,7 @@ def main():
         print("  export LLM_API_KEY=sk-xxx")
         return
 
+
     llm = OpenAILLM(
         api_key=Config.LLM_API_KEY,
         model=Config.LLM_MODEL,
@@ -22,10 +23,10 @@ def main():
     )
 
     # 2. 创建 Agent 并挂载 LLM
-    agent = Agent(name="StudyAgent")
+    agent = Agent(name="StudyAgent", stream_mode=Config.STREAM_MODE)
     agent.set_llm(llm)
 
-    print(f"Agent [{agent.name}] ready | model: {Config.LLM_MODEL}")
+    print(f"Agent [{agent.name}] ready | model: {Config.LLM_MODEL}| stream_mode: {Config.STREAM_MODE}")
     print("输入 quit 退出, 输入 stream: 前缀使用流式输出")
     print("-" * 50)
 
@@ -43,16 +44,16 @@ def main():
             print("Bye!")
             break
 
+        result = agent.run(user_input)
+
         # 判断是否使用流式输出
-        if user_input.startswith("stream:"):
-            query = user_input[7:].strip()
+        if agent.stream_mode:
             print("Assistant> ", end="", flush=True)
-            for chunk in agent.run_stream(query):
+            for chunk in result:
                 print(chunk, end="", flush=True)
             print()
         else:
-            response = agent.run(user_input)
-            print(f"Assistant> {response}")
+            print(f"Assistant> {result}")
 
 
 if __name__ == "__main__":
