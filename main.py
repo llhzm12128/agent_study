@@ -6,6 +6,7 @@ import sys
 from config import Config
 from agent.core import Agent
 from agent.llm.openai_llm import OpenAILLM
+from agent.memory.chat_memory import ChatMemory
 
 
 def main():
@@ -21,10 +22,13 @@ def main():
         model=Config.LLM_MODEL,
         base_url=Config.LLM_BASE_URL,
     )
+    memory = ChatMemory(max_rounds=Config.MEMORY_MAX_ROUNDS)
 
     # 2. 创建 Agent 并挂载 LLM
     agent = Agent(name="StudyAgent", stream_mode=Config.STREAM_MODE)
     agent.set_llm(llm)
+    agent.set_memory(memory)
+
 
     print(f"Agent [{agent.name}] ready | model: {Config.LLM_MODEL}| stream_mode: {Config.STREAM_MODE}")
     print("输入 quit 退出, 输入 stream: 前缀使用流式输出")

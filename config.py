@@ -15,3 +15,4 @@ class Config:
     STREAM_MODE = True
     MEMORY_MAX_TOKENS = 4000
     VECTOR_DB_PATH = "./data/vector_store"
+    MEMORY_MAX_ROUNDS = 3
