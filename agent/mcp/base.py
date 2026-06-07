@@ -2,6 +2,7 @@
 MCP (Model Context Protocol) 基类
 支持 stdio 本地通信和 HTTPS 远程通信
 """
+from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import Any

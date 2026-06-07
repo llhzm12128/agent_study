@@ -1,6 +1,7 @@
 """
 LLM 基类 - 定义 LLM 通道的统一接口
 """
+from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import Generator

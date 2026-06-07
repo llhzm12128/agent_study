@@ -1,6 +1,7 @@
 """
 Agent 核心类 - 框架的中枢调度器
 """
+from __future__ import annotations
 
 from typing import Generator
 from agent.llm.base import BaseLLM

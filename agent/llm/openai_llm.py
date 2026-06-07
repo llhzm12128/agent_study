@@ -2,6 +2,7 @@
 OpenAI 兼容 LLM 实现
 支持所有 OpenAI API 兼容的模型服务（通义千问、DeepSeek、GPT 等）
 """
+from __future__ import annotations
 
 from typing import Generator
 from openai import OpenAI

@@ -1,6 +1,7 @@
 """
 Memory 基类 - 定义记忆模块的统一接口
 """
+from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
