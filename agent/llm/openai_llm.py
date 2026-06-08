@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import Generator
 from openai import OpenAI
 from agent.llm.base import BaseLLM
+from agent.tools.base import BaseTool
 
 
 class OpenAILLM(BaseLLM):
@@ -43,3 +44,29 @@ class OpenAILLM(BaseLLM):
             delta_content = chunk.choices[0].delta.content
             if delta_content:
                 yield delta_content
+    
+    def chat_with_tools(self, messages: list[dict], tools: list[BaseTool]) -> dict:
+        """支持工具调用的对话接口，返回 LLM 响应和工具调用指令"""
+        kwagrs = {
+            "model": self.model,
+            "messages": messages,
+        }
+        if tools:
+            kwagrs["tools"] = tools
+            kwagrs["tool_choice"] = "auto"
+        response = self.client.chat.completions.create(**kwagrs)
+        message = response.choices[0].message
+        result={"content": message.content or "", "tool_calls": None}
+        if message.tool_calls:
+            result["tool_calls"] = [
+                {
+                    "id": tc.id,
+                    "type": "function",  # API 回传时必须带这个字段
+                    "function": {
+                        "name": tc.function.name,
+                        "arguments": tc.function.arguments,
+                    }
+                }
+                for tc in message.tool_calls
+            ]
+        return result

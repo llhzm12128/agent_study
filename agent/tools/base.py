@@ -31,3 +31,14 @@ class BaseTool(ABC):
     def execute(self, **kwargs) -> Any:
         """执行工具，返回结果"""
         ...
+    
+    def to_openai_schema(self) -> dict:
+        """转换为 OpenAI Function Schema 格式"""
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": self.parameters,
+            }
+        }

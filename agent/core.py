@@ -8,6 +8,7 @@ from agent.llm.base import BaseLLM
 from agent.memory.base import BaseMemory
 from agent.tools.base import BaseTool
 from agent.llm.registry import LLMRegistry
+import json
 
 
 class Agent:
@@ -62,11 +63,26 @@ class Agent:
         if not self.llm:
             raise RuntimeError("未设置 LLM，请先调用 set_llm()")
         messages = self._build_messages(user_input)
-        response = self.llm.chat(messages)
+        tools_schema = self._get_tools_schema()
+        for _ in range(10):  # 最多允许 LLM 调用工具 10 轮，防止死循环
+            response = self.llm.chat_with_tools(messages, tools_schema)
+            if not response.get("tool_calls"):
+                # LLM 没有生成工具调用指令，说明对话结束
+                final_answer = response["content"] or ""
+                break
+            # LLM 生成工具调用指令，需要执行工具
+            messages.append({"role": "assistant", "content": response["content"],
+                             "tool_calls": response["tool_calls"]})
+            # 执行工具调用指令，获取工具执行结果
+            tool_results = self._execute_tool_calls(response["tool_calls"])
+            messages.extend(tool_results)
+        else:
+            final_answer = "工具调用过多，可能出现死循环，已强制结束对话。"
+        
         if self.memory:
             self.memory.add("user", user_input)
-            self.memory.add("assistant", response)
-        return response
+            self.memory.add("assistant", final_answer)
+        return final_answer
 
     def run_stream(self, user_input: str) -> Generator[str, None, None]:
         """
@@ -120,5 +136,40 @@ class Agent:
         self.llm = self._llm_registry.current
         return self
     
+    def _get_tools_schema(self) -> list[dict]:
+        """获取工具调用的 schema 列表，供 LLM 生成工具调用指令时参考"""
+        if not self.tools:
+            return None
+        return [tool.to_openai_schema() for tool in self.tools]
+    
+    def find_tool(self, tool_name: str) -> BaseTool | None:
+        """根据工具名称查找工具实例"""
+        for tool in self.tools:
+            if tool.name == tool_name:
+                return tool
+        return None
+    
+    def _execute_tool_calls(self, tool_calls: list[dict]) -> list[dict]:
+        """执行 LLM 生成的工具调用指令，返回工具执行结果列表"""
+        results = []
+        for call in tool_calls:
+            tool_name = call["function"]["name"]
+            tool_args = json.loads(call["function"]["arguments"])
+            tool = self.find_tool(tool_name)
+            if not tool:
+                results.append({"tool_name": tool_name, "error": "工具未找到"})
+                continue
+            try:
+                result = tool.execute(**tool_args)
+                results.append({"role": "tool", 
+                                "tool_call_id": call["id"],
+                                 "content": str(result),
+                                 "tool_name": tool_name,
+                                 })
+            except Exception as e:
+                results.append({"tool_name": tool_name, "error": str(e)})
+        return results
+    
+          
     
 

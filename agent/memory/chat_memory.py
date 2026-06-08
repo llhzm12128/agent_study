@@ -5,12 +5,12 @@ class ChatMemory(BaseMemory):
 
     def __init__(self, max_rounds: int = 3, history: list[dict] = []):
         super().__init__()
-        self.max_tokens = max_rounds
+        self.max_rounds = max_rounds
         self.history = history
 
     def add(self, role: str, content: str):
         """添加一轮对话，role: user/assistant"""
-        if len(self.history) >= self.max_tokens:
+        if len(self.history) >= self.max_rounds:
             self.history.pop(0)
         self.history.append({"role": role, "content": content})
 

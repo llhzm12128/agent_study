@@ -7,6 +7,9 @@ from config import Config
 from agent.core import Agent
 from agent.llm.openai_llm import OpenAILLM
 from agent.memory.chat_memory import ChatMemory
+from agent.tools.weather_tool import WeatherTool
+from agent.tools.read_file_tool import ReadFileTool
+
 
 
 def main():
@@ -31,6 +34,8 @@ def main():
     
     agent.switch_llm("deepseek-v4-flash")
     agent.set_memory(memory)
+    agent.add_tool(WeatherTool())
+    agent.add_tool(ReadFileTool())
 
 
     print(f"Agent [{agent.name}] ready | model: {Config.LLM_MODEL}| stream_mode: {Config.STREAM_MODE}")
