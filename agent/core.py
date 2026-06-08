@@ -7,6 +7,7 @@ from typing import Generator
 from agent.llm.base import BaseLLM
 from agent.memory.base import BaseMemory
 from agent.tools.base import BaseTool
+from agent.llm.registry import LLMRegistry
 
 
 class Agent:
@@ -18,6 +19,7 @@ class Agent:
         self.memory: BaseMemory | None = None
         self.tools: list[BaseTool] = []
         self.stream_mode = stream_mode
+        self._llm_registry: LLMRegistry | None = None
 
     def set_llm(self, llm: BaseLLM):
         """设置 LLM 通道"""
@@ -101,3 +103,22 @@ class Agent:
             for t in self.tools:
                 tool_desc += f"- {t.name}: {t.description}" + chr(10)
         return f"你是 {self.name}，一个智能助手。{tool_desc}"
+    
+    def register_llm(self, name: str, llm_cls: BaseLLM):
+        """注册一个 LLM 实现"""
+        if self._llm_registry is None:
+            self._llm_registry = LLMRegistry()
+        self._llm_registry.register(name, llm_cls)
+        self.llm = self._llm_registry.current
+        return self
+    
+    def switch_llm(self, name: str):
+        """切换当前使用的 LLM"""
+        if self._llm_registry is None:
+            raise RuntimeError("没有注册任何 LLM 模型")
+        self._llm_registry.switch(name)
+        self.llm = self._llm_registry.current
+        return self
+    
+    
+

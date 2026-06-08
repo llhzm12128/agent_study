@@ -26,7 +26,10 @@ def main():
 
     # 2. 创建 Agent 并挂载 LLM
     agent = Agent(name="StudyAgent", stream_mode=Config.STREAM_MODE)
-    agent.set_llm(llm)
+    agent.register_llm("deepseek-v4-flash", llm)
+    agent.register_llm("deepseek-v4-pro", OpenAILLM(api_key=Config.LLM_API_KEY, model="deepseek-v4-pro", base_url=Config.LLM_BASE_URL))
+    
+    agent.switch_llm("deepseek-v4-flash")
     agent.set_memory(memory)
 
 
