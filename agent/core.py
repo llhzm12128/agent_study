@@ -9,6 +9,7 @@ from agent.memory.base import BaseMemory
 from agent.tools.base import BaseTool
 from agent.llm.registry import LLMRegistry
 import json
+from agent.react.react_loop import ReactLoop
 
 
 class Agent:
@@ -57,7 +58,17 @@ class Agent:
             # 同步输出
             return self.run_sync(user_input)
        
-    
+    def run_sync(self, user_input: str) -> str:
+        if not self.llm:
+            raise RuntimeError("未设置 LLM，请先调用 set_llm()")
+        if self.tools:
+            react = ReactLoop(llm=self.llm, tools=self.tools, memory=self.memory, verbose=True)
+            return react.run(user_input)
+        else:
+            self.run_stream(user_input)
+
+
+    '''
     def run_sync(self, user_input: str) -> str:
         """同步调用 LLM，返回完整响应"""
         if not self.llm:
@@ -65,6 +76,7 @@ class Agent:
         messages = self._build_messages(user_input)
         tools_schema = self._get_tools_schema()
         for _ in range(10):  # 最多允许 LLM 调用工具 10 轮，防止死循环
+            #分析用户输入和对话历史，生成工具调用指令
             response = self.llm.chat_with_tools(messages, tools_schema)
             if not response.get("tool_calls"):
                 # LLM 没有生成工具调用指令，说明对话结束
@@ -83,6 +95,7 @@ class Agent:
             self.memory.add("user", user_input)
             self.memory.add("assistant", final_answer)
         return final_answer
+        '''
 
     def run_stream(self, user_input: str) -> Generator[str, None, None]:
         """
