@@ -10,6 +10,9 @@ from agent.tools.base import BaseTool
 from agent.llm.registry import LLMRegistry
 import json
 from agent.react.react_loop import ReactLoop
+from agent.skills.base import BaseSkill
+from agent.skills.registry import SkillRegistry
+from agent.skills.context import SkillContext
 
 
 class Agent:
@@ -22,6 +25,7 @@ class Agent:
         self.tools: list[BaseTool] = []
         self.stream_mode = stream_mode
         self._llm_registry: LLMRegistry | None = None
+        self._skill_registry: SkillRegistry = SkillRegistry()
 
     def set_llm(self, llm: BaseLLM):
         """设置 LLM 通道"""
@@ -37,6 +41,20 @@ class Agent:
         """注册工具"""
         self.tools.append(tool)
         return self
+
+    def add_skill(self, skill: BaseSkill):
+        """注册技能（Skill）"""
+        self._skill_registry.register(skill)
+        return self
+
+    def _build_skill_context(self) -> SkillContext:
+        """构建注入给 Skill 的依赖容器（依赖注入）"""
+        return SkillContext(
+            llm=self.llm,
+            tools={t.name: t for t in self.tools},
+            skills={s.name: s for s in self._skill_registry.all()},
+            memory=self.memory,
+        )
 
     def run(self, user_input: str, stream_mode: bool|None=None) -> str:
         """
@@ -61,11 +79,20 @@ class Agent:
     def run_sync(self, user_input: str) -> str:
         if not self.llm:
             raise RuntimeError("未设置 LLM，请先调用 set_llm()")
-        if self.tools:
-            react = ReactLoop(llm=self.llm, tools=self.tools, memory=self.memory, verbose=True)
+        # 有工具或技能时走 ReAct 循环
+        if self.tools or self._skill_registry.all():
+            react = ReactLoop(
+                llm=self.llm,
+                tools=self.tools,
+                memory=self.memory,
+                verbose=True,
+                skill_registry=self._skill_registry,
+                skill_context=self._build_skill_context(),
+            )
             return react.run(user_input)
         else:
-            self.run_stream(user_input)
+            # 无工具无技能时退化为流式输出
+            return "".join(self.run_stream(user_input))
 
 
     '''
@@ -104,6 +131,7 @@ class Agent:
         """
         if not self.llm:
             raise RuntimeError("未设置 LLM，请先调用 set_llm()")
+        #执行之前，构建系统提示词和用户输入的消息列表
         messages = self._build_messages(user_input)
         full_response = ""
         for chunk in self.llm.chat_stream(messages):

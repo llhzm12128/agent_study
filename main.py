@@ -9,6 +9,7 @@ from agent.llm.openai_llm import OpenAILLM
 from agent.memory.chat_memory import ChatMemory
 from agent.tools.weather_tool import WeatherTool
 from agent.tools.read_file_tool import ReadFileTool
+from agent.skills.weather_report_skill import WeatherReportSkill
 
 
 
@@ -36,6 +37,8 @@ def main():
     agent.set_memory(memory)
     agent.add_tool(WeatherTool())
     agent.add_tool(ReadFileTool())
+    # 注册技能（Skill）：编排 get_weather + LLM 生成出行建议
+    agent.add_skill(WeatherReportSkill())
 
 
     print(f"Agent [{agent.name}] ready | model: {Config.LLM_MODEL}| stream_mode: {Config.STREAM_MODE}")

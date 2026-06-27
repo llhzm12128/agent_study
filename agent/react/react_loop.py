@@ -11,13 +11,16 @@ import json
 
 
 class ReactLoop:
-    def __init__(self, llm,tools,memory=None,max_steps=10,verbose=True):
+    def __init__(self, llm, tools, memory=None, max_steps=10, verbose=True,
+                 skill_registry=None, skill_context=None):
         self.llm = llm
         self.tools = tools
         self.memory = memory
         self.max_steps = max_steps
         self.steps:list[dict] = [] #记录每一步的思考、行动和观察
         self.verbose = True #是否打印每一步的日志
+        self.skill_registry = skill_registry  # SkillRegistry，可选
+        self.skill_context = skill_context    # SkillContext，可选
 
     def set_llm(self, llm: BaseLLM):
         """设置 LLM 通道"""
@@ -111,18 +114,29 @@ class ReactLoop:
             tool_desc = chr(10) + chr(10) + "可用工具:" + chr(10)
             for t in self.tools:
                 tool_desc += f"- {t.name}: {t.description}" + chr(10)
+        skill_desc = ""
+        if self.skill_registry and self.skill_registry.all():
+            skill_desc = chr(10) + chr(10) + "可用技能(Skill，更高级的组合能力):" + chr(10)
+            for s in self.skill_registry.all():
+                skill_desc += f"- {s.name}: {s.description}" + chr(10)
         return (f"你是一个智能助手。请一步步思考后再行动。\n"
-                f"如果需要调用工具，请使用提供的工具。\n"
+                f"如果需要调用工具或技能，请使用提供的工具/技能。\n"
                 f"如果已有足够信息，直接给出最终回答。"
-                f"{tool_desc}")
+                f"{tool_desc}{skill_desc}")
     
     
     
     def _get_tools_schema(self) -> list[dict]:
-        """获取工具调用的 schema 列表，供 LLM 生成工具调用指令时参考"""
-        if not self.tools:
-            return None
-        return [tool.to_openai_schema() for tool in self.tools]
+        """获取工具+技能调用的 schema 列表，供 LLM 生成调用指令时参考。
+
+        Skill 与 Tool 的 schema 同形（"Skill as Tool"），合并后一起喂给 LLM。
+        """
+        schemas: list[dict] = []
+        if self.tools:
+            schemas.extend(tool.to_openai_schema() for tool in self.tools)
+        if self.skill_registry:
+            schemas.extend(self.skill_registry.schemas())
+        return schemas or None
     
     def find_tool(self, tool_name: str) -> BaseTool | None:
         """根据工具名称查找工具实例"""
@@ -132,15 +146,38 @@ class ReactLoop:
         return None
     
     def  _execute_tool_action(self, action_name: str, action_args: dict) -> str:
-        """执行 LLM 生成的行动指令，返回行动结果"""
+        """执行 LLM 生成的行动指令，返回行动结果。
+
+        分发逻辑：先查 Tool，查不到再查 Skill（Skill as Tool）。
+        """
+        # 1) 优先按 Tool 执行
         tool = self.find_tool(action_name)
-        if not tool:
-            return f"工具 {action_name} 未找到"
-        try:
-            result = tool.execute(**action_args)
-            return str(result)
-        except Exception as e:
-            return f"执行工具 {action_name} 时出错: {str(e)}"
+        if tool:
+            try:
+                result = tool.execute(**action_args)
+                return str(result)
+            except Exception as e:
+                return f"执行工具 {action_name} 时出错: {str(e)}"
+
+        # 2) 查不到 Tool 时尝试按 Skill 执行
+        if self.skill_registry:
+            skill = self.skill_registry.get(action_name)
+            if skill:
+                ctx = self.skill_context or self._build_default_skill_context()
+                result = skill.run(ctx, **action_args)  # run() 内部已做异常兜底
+                return result.to_observation()
+
+        return f"工具或技能 {action_name} 未找到"
+
+    def _build_default_skill_context(self):
+        """当未注入 skill_context 时，基于当前 llm/tools/memory 兜底构建一个。"""
+        from agent.skills.context import SkillContext
+        return SkillContext(
+            llm=self.llm,
+            tools={t.name: t for t in self.tools},
+            skills={s.name: s for s in (self.skill_registry.all() if self.skill_registry else [])},
+            memory=self.memory,
+        )
         
     def save_to_memory(self, user_input: str, final_answer: str):
         """将对话内容保存到记忆模块"""
